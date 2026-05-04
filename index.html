@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f312a" />
+    <title>Camino Francés en bici | Logroño - Santiago</title>
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <p class="eyebrow">Camino Francés en bici</p>
+        <h1>Logroño – Santiago</h1>
+      </div>
+      <nav class="tab-nav tab-nav-top" aria-label="Vistas">
+        <button class="tab" data-view="mapa" type="button">Mapa</button>
+        <button class="tab" data-view="plan" type="button">Plan</button>
+        <button class="tab" data-view="kpis" type="button">KPIs</button>
+        <button class="tab" data-view="carga" type="button">Carga</button>
+      </nav>
+    </header>
+
+    <main class="app-main">
+      <section class="map-section" aria-label="Mapa">
+        <div class="map-toolbar">
+          <div class="map-toolbar-title">
+            <p class="eyebrow">Visor GIS</p>
+            <h2>Ruta coloreada por día</h2>
+          </div>
+          <div class="toolbar-actions">
+            <button id="fit-route" type="button">Ver ruta</button>
+            <button id="toggle-all" type="button">Solo activa</button>
+          </div>
+        </div>
+        <div id="map-status" class="map-status">Cargando traza local del Camino Francés...</div>
+        <div id="map" class="map"></div>
+      </section>
+
+      <aside class="sheet" id="sheet" aria-hidden="true">
+        <button class="sheet-backdrop" id="sheet-backdrop" type="button" aria-label="Cerrar panel"></button>
+        <div class="sheet-panel" role="dialog" aria-modal="false" aria-labelledby="sheet-title">
+          <div class="sheet-header">
+            <span class="sheet-grabber" aria-hidden="true"></span>
+            <h2 class="sheet-title" id="sheet-title">Plan diario</h2>
+            <button class="sheet-close" id="sheet-close" type="button" aria-label="Cerrar">×</button>
+          </div>
+          <div class="sheet-body">
+            <section class="view" data-view="plan" aria-label="Plan diario">
+              <div id="stage-list" class="stage-list"></div>
+            </section>
+
+            <section class="view" data-view="kpis" aria-label="KPIs y resumen">
+              <p class="intro">
+                Itinerario de bicigrino por la ruta clásica del Camino Francés, con jornadas largas al
+                inicio para reservar energía en los puertos de León y el terreno quebrado de Galicia.
+              </p>
+              <div class="summary-grid" aria-label="Resumen global">
+                <article>
+                  <span class="label">Distancia</span>
+                  <strong>600 km</strong>
+                </article>
+                <article>
+                  <span class="label">Desnivel +</span>
+                  <strong>6.527 m</strong>
+                </article>
+                <article>
+                  <span class="label">Noches</span>
+                  <strong>7</strong>
+                </article>
+                <article>
+                  <span class="label">Tramo clave</span>
+                  <strong>O Cebreiro</strong>
+                </article>
+              </div>
+              <div class="section-heading">
+                <p class="eyebrow">Criterio de ruta</p>
+                <h3>Lectura rápida</h3>
+              </div>
+              <ul class="notes-list">
+                <li>La ruta sigue el Camino Francés, el itinerario jacobeo más transitado y clásico.</li>
+                <li>Los días 1-3 acumulan kilómetros por terreno más rodador para llegar con margen a El Bierzo.</li>
+                <li>Los días 4-6 concentran la dureza: Cruz de Ferro, O Cebreiro y repechos gallegos.</li>
+                <li>Conviene reservar alojamiento en Burgos, Astorga, Sarria y Santiago en temporada alta.</li>
+              </ul>
+              <p class="sources">
+                <strong>Fuentes:</strong> traza GeoJSON local derivada de
+                <a href="https://gist.github.com/reinvented/d7a78556f69be952b3cb96f992f49743" target="_blank" rel="noreferrer">reinvented/caminofrances.geojson</a>,
+                secuencia y distancias en
+                <a href="https://www.gronze.com/camino-frances/albergues" target="_blank" rel="noreferrer">Gronze</a>
+                y etapas en
+                <a href="https://www.tournride.com/es/etapas-del-camino-de-santiago/" target="_blank" rel="noreferrer">Tournride</a>.
+                Desnivel calculado con
+                <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.
+              </p>
+            </section>
+
+            <section class="view" data-view="carga" aria-label="Carga física">
+              <div class="section-heading">
+                <p class="eyebrow">Carga física</p>
+                <h3>Desnivel positivo por jornada</h3>
+              </div>
+              <div id="elevation-bars" class="elevation-bars"></div>
+              <p class="caption">
+                La barra muestra la dureza relativa del día por desnivel acumulado. Días 4 y 5 (Cruz de
+                Ferro y O Cebreiro) concentran la mayor exigencia.
+              </p>
+            </section>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <nav class="tab-nav tab-nav-bottom" aria-label="Vistas">
+      <button class="tab" data-view="mapa" type="button">
+        <span class="tab-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14"/><path d="M15 6v14"/></svg>
+        </span>
+        <span>Mapa</span>
+      </button>
+      <button class="tab" data-view="plan" type="button">
+        <span class="tab-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+        </span>
+        <span>Plan</span>
+      </button>
+      <button class="tab" data-view="kpis" type="button">
+        <span class="tab-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
+        </span>
+        <span>KPIs</span>
+      </button>
+      <button class="tab" data-view="carga" type="button">
+        <span class="tab-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 19 6-9 4 5 3-4 5 8Z"/><circle cx="16" cy="6" r="2"/></svg>
+        </span>
+        <span>Carga</span>
+      </button>
+    </nav>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="data/camino-frances.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
