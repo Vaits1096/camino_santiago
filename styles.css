@@ -442,6 +442,97 @@ button:hover {
 }
 
 /* ===== Carga física ===== */
+.section-heading-mt {
+  margin-top: 22px;
+}
+
+.elevation-profile {
+  margin: 0 0 10px;
+}
+
+.profile-frame {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 6px 6px 0;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.profile-svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+  cursor: crosshair;
+  user-select: none;
+  touch-action: none;
+}
+
+.profile-tooltip {
+  position: absolute;
+  top: 6px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  background: rgba(15, 33, 27, 0.92);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  min-width: 96px;
+  text-align: center;
+}
+
+.profile-tooltip[hidden] {
+  display: none;
+}
+
+.profile-tooltip-km {
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.profile-tooltip-m {
+  font-size: 0.95rem;
+}
+
+.profile-tooltip-place {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+.profile-tooltip-place:empty {
+  display: none;
+}
+
+.profile-reset {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--line);
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--accent-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.profile-reset[hidden] {
+  display: none;
+}
+
 .elevation-bars {
   display: grid;
   gap: 10px;
@@ -553,10 +644,25 @@ button:hover {
   font-size: 0.85rem;
 }
 
+.leaflet-control-layers-toggle {
+  width: 38px;
+  height: 38px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d5e59' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>");
+  background-size: 22px 22px;
+  background-repeat: no-repeat;
+  background-position: center;
+  border-radius: var(--radius);
+}
+
 .leaflet-control-layers-expanded {
   padding: 10px 12px;
   max-height: 60vh;
   overflow: auto;
+}
+
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+  display: none;
 }
 
 .leaflet-control-layers-base label,

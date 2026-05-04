@@ -110,6 +110,46 @@ const stopPoints = [
 
 const fallbackLine = stopPoints.map((point) => point.coordinates);
 
+// Perfil de altimetría aproximado del Camino Francés (puntos clave por km acumulado).
+const elevationProfile = [
+  { km: 0, m: 384, label: "Logroño" },
+  { km: 30, m: 485, label: "Nájera" },
+  { km: 50, m: 645, label: "Santo Domingo" },
+  { km: 70, m: 770, label: "Belorado" },
+  { km: 88, m: 1150, label: "Montes de Oca" },
+  { km: 105, m: 950, label: "Atapuerca" },
+  { km: 120.7, m: 860, label: "Burgos" },
+  { km: 145, m: 825, label: "Hornillos" },
+  { km: 165, m: 800, label: "Castrojeriz" },
+  { km: 190, m: 780, label: "Frómista" },
+  { km: 210, m: 830, label: "Carrión" },
+  { km: 242.9, m: 822, label: "Sahagún" },
+  { km: 280, m: 800, label: "Mansilla" },
+  { km: 300, m: 837, label: "León" },
+  { km: 332, m: 825, label: "Hospital de Órbigo" },
+  { km: 349.9, m: 870, label: "Astorga" },
+  { km: 372, m: 1150, label: "Rabanal" },
+  { km: 388, m: 1505, label: "Cruz de Ferro" },
+  { km: 397, m: 1145, label: "El Acebo" },
+  { km: 410, m: 595, label: "Molinaseca" },
+  { km: 416, m: 545, label: "Ponferrada" },
+  { km: 423.1, m: 510, label: "Villafranca del Bierzo" },
+  { km: 435, m: 580, label: "Trabadelo" },
+  { km: 444, m: 630, label: "Vega de Valcarce" },
+  { km: 460, m: 1290, label: "O Cebreiro" },
+  { km: 475, m: 660, label: "Triacastela" },
+  { km: 489, m: 440, label: "Sarria" },
+  { km: 510, m: 350, label: "Portomarín" },
+  { km: 535, m: 565, label: "Palas de Rei" },
+  { km: 550, m: 450, label: "Melide" },
+  { km: 563.1, m: 390, label: "Arzúa" },
+  { km: 583, m: 290, label: "O Pedrouzo" },
+  { km: 595, m: 380, label: "Monte do Gozo" },
+  { km: 599.6, m: 260, label: "Santiago de Compostela" },
+];
+
+const stageBoundaries = [0, 120.7, 242.9, 349.9, 423.1, 489, 563.1, 599.6];
+
 let map;
 let allBounds;
 let stageLayers = [];
@@ -124,6 +164,7 @@ init();
 async function init() {
   renderStageCards();
   renderElevationBars();
+  renderElevationProfile();
   initMap();
   initShell();
 
@@ -248,8 +289,16 @@ function initMap() {
   routePane = map.createPane("route");
   routePane.style.zIndex = 460;
 
-  const collapseLayers = window.matchMedia("(max-width: 759px)").matches;
-  L.control.layers(baseLayers, overlayLayers, { collapsed: collapseLayers, position: "topright" }).addTo(map);
+  const layersControl = L.control.layers(baseLayers, overlayLayers, {
+    collapsed: true,
+    position: "topright",
+  }).addTo(map);
+  const layersToggle = layersControl.getContainer().querySelector(".leaflet-control-layers-toggle");
+  if (layersToggle) {
+    layersToggle.classList.add("layers-toggle-icon");
+    layersToggle.setAttribute("title", "Capas del mapa");
+    layersToggle.setAttribute("aria-label", "Capas del mapa");
+  }
   requestAnimationFrame(() => map.invalidateSize());
 
   const stopsLayer = L.layerGroup();
@@ -481,6 +530,377 @@ function renderStageCards() {
   document.querySelectorAll(".stage-card").forEach((card) => {
     card.addEventListener("click", () => selectStage(Number(card.dataset.day), true));
   });
+}
+
+function renderElevationProfile() {
+  const container = document.getElementById("elevation-profile");
+  if (!container) return;
+
+  const totalKm = elevationProfile[elevationProfile.length - 1].km;
+  const dense = densifyProfile(elevationProfile, 1.5);
+  const minM = Math.min(...dense.map((p) => p.m));
+  const maxM = Math.max(...dense.map((p) => p.m));
+  const padTop = 18;
+  const padBottom = 28;
+  const padLeft = 38;
+  const padRight = 14;
+  const viewWidth = 720;
+  const viewHeight = 240;
+  const innerW = viewWidth - padLeft - padRight;
+  const innerH = viewHeight - padTop - padBottom;
+  const range = Math.max(1, maxM - minM);
+
+  const xScale = (km) => padLeft + (km / totalKm) * innerW;
+  const yScale = (m) => padTop + ((maxM - m) / range) * innerH;
+
+  const linePoints = dense.map((p) => `${xScale(p.km).toFixed(2)},${yScale(p.m).toFixed(2)}`).join(" ");
+  const areaPath =
+    `M ${xScale(0).toFixed(2)},${(padTop + innerH).toFixed(2)} ` +
+    `L ${dense.map((p) => `${xScale(p.km).toFixed(2)},${yScale(p.m).toFixed(2)}`).join(" L ")} ` +
+    `L ${xScale(totalKm).toFixed(2)},${(padTop + innerH).toFixed(2)} Z`;
+
+  const stageBands = stages
+    .map((stage, i) => {
+      const x0 = xScale(stageBoundaries[i]);
+      const x1 = xScale(stageBoundaries[i + 1]);
+      return `<rect x="${x0.toFixed(2)}" y="${padTop}" width="${(x1 - x0).toFixed(2)}" height="${innerH}" fill="${stage.color}" opacity="0.07"/>`;
+    })
+    .join("");
+
+  const stageDividers = stageBoundaries
+    .slice(1, -1)
+    .map((km) => {
+      const x = xScale(km).toFixed(2);
+      return `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${padTop + innerH}" stroke="#9bb0a3" stroke-width="0.6" stroke-dasharray="3 3"/>`;
+    })
+    .join("");
+
+  const stageLabels = stages
+    .map((stage, i) => {
+      const x = xScale((stageBoundaries[i] + stageBoundaries[i + 1]) / 2);
+      return `<text x="${x.toFixed(2)}" y="${(viewHeight - 8).toFixed(2)}" text-anchor="middle" font-size="9" fill="#607167" font-weight="700">D${stage.day}</text>`;
+    })
+    .join("");
+
+  const yTicks = [];
+  const tickStep = niceStep(range / 4);
+  const tickStart = Math.ceil(minM / tickStep) * tickStep;
+  for (let m = tickStart; m <= maxM; m += tickStep) {
+    const y = yScale(m).toFixed(2);
+    yTicks.push(
+      `<line x1="${padLeft}" y1="${y}" x2="${(viewWidth - padRight).toFixed(2)}" y2="${y}" stroke="#dce4db" stroke-width="0.6"/>` +
+        `<text x="${padLeft - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="#607167">${m}</text>`,
+    );
+  }
+
+  const stageLabelEls = stages
+    .map((stage, i) => {
+      const midKm = (stageBoundaries[i] + stageBoundaries[i + 1]) / 2;
+      return `<text data-stage-label="${stage.day}" data-stage-km="${midKm}" y="${(viewHeight - 8).toFixed(2)}" text-anchor="middle" font-size="9" fill="#607167" font-weight="700">D${stage.day}</text>`;
+    })
+    .join("");
+
+  container.innerHTML = `
+    <div class="profile-frame">
+      <svg viewBox="0 0 ${viewWidth} ${viewHeight}" preserveAspectRatio="none" class="profile-svg" role="img">
+        <defs>
+          <linearGradient id="elev-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#0f766e" stop-opacity="0.55"/>
+            <stop offset="55%" stop-color="#c68a20" stop-opacity="0.32"/>
+            <stop offset="100%" stop-color="#b54636" stop-opacity="0.05"/>
+          </linearGradient>
+          <clipPath id="profile-clip">
+            <rect x="${padLeft}" y="${padTop}" width="${innerW}" height="${innerH}"/>
+          </clipPath>
+        </defs>
+        ${yTicks.join("")}
+        <g clip-path="url(#profile-clip)">
+          <g class="profile-zoom" transform="translate(0,0)">
+            ${stageBands}
+            ${stageDividers}
+            <path d="${areaPath}" fill="url(#elev-fill)"/>
+            <polyline points="${linePoints}" fill="none" stroke="#0d5e59" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+          </g>
+          <g class="profile-cursor" style="display:none">
+            <line class="profile-cursor-line" y1="${padTop}" y2="${padTop + innerH}" stroke="#17211b" stroke-width="0.8" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"/>
+            <circle class="profile-cursor-dot" r="4" fill="#fff" stroke="#0d5e59" stroke-width="2"/>
+          </g>
+        </g>
+        <g class="profile-stage-labels">${stageLabelEls}</g>
+      </svg>
+      <div class="profile-tooltip" role="status" aria-live="polite" hidden>
+        <span class="profile-tooltip-km"></span>
+        <span class="profile-tooltip-m"></span>
+        <span class="profile-tooltip-place"></span>
+      </div>
+      <button type="button" class="profile-reset" aria-label="Restablecer zoom" hidden>↺</button>
+    </div>
+  `;
+
+  attachProfileInteractions(container, dense, {
+    viewWidth,
+    viewHeight,
+    padLeft,
+    padRight,
+    padTop,
+    innerW,
+    innerH,
+    xScale,
+    yScale,
+    totalKm,
+  });
+}
+
+function densifyProfile(points, stepKm) {
+  const result = [];
+  const total = points[points.length - 1].km;
+  let segIndex = 0;
+  for (let km = 0; km <= total + 0.001; km += stepKm) {
+    while (segIndex < points.length - 2 && points[segIndex + 1].km < km) segIndex++;
+    const a = points[segIndex];
+    const b = points[segIndex + 1] || a;
+    const span = b.km - a.km;
+    const t = span > 0 ? Math.min(1, Math.max(0, (km - a.km) / span)) : 0;
+    const tt = (1 - Math.cos(t * Math.PI)) / 2;
+    const m = a.m + (b.m - a.m) * tt;
+    const labelPoint = nearestKey(points, km);
+    result.push({ km: Math.min(km, total), m, label: labelPoint });
+  }
+  return result;
+}
+
+function nearestKey(points, km) {
+  let best = points[0];
+  let bestDist = Math.abs(points[0].km - km);
+  for (const p of points) {
+    const d = Math.abs(p.km - km);
+    if (d < bestDist) {
+      bestDist = d;
+      best = p;
+    }
+  }
+  return best;
+}
+
+function niceStep(rough) {
+  const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / pow;
+  let step = 1;
+  if (norm < 1.5) step = 1;
+  else if (norm < 3) step = 2;
+  else if (norm < 7) step = 5;
+  else step = 10;
+  return step * pow;
+}
+
+function attachProfileInteractions(container, dense, geom) {
+  const svg = container.querySelector(".profile-svg");
+  const zoomGroup = svg.querySelector(".profile-zoom");
+  const cursor = svg.querySelector(".profile-cursor");
+  const cursorLine = svg.querySelector(".profile-cursor-line");
+  const cursorDot = svg.querySelector(".profile-cursor-dot");
+  const stageLabelEls = svg.querySelectorAll("[data-stage-label]");
+  const tooltip = container.querySelector(".profile-tooltip");
+  const tipKm = tooltip.querySelector(".profile-tooltip-km");
+  const tipM = tooltip.querySelector(".profile-tooltip-m");
+  const tipPlace = tooltip.querySelector(".profile-tooltip-place");
+  const resetBtn = container.querySelector(".profile-reset");
+
+  const state = { zoom: 1, panKm: 0, minZoom: 1, maxZoom: 8 };
+  const pointers = new Map();
+  let pinch = null;
+
+  function clamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  function viewKmRange() {
+    return geom.totalKm / state.zoom;
+  }
+
+  function clampPan() {
+    state.panKm = clamp(state.panKm, 0, geom.totalKm - viewKmRange());
+  }
+
+  function xView(km) {
+    return geom.padLeft + ((km - state.panKm) / geom.totalKm) * geom.innerW * state.zoom;
+  }
+
+  function applyZoom() {
+    clampPan();
+    const panOffsetX = (state.panKm / geom.totalKm) * geom.innerW;
+    zoomGroup.setAttribute(
+      "transform",
+      `translate(${(-panOffsetX * state.zoom).toFixed(3)},0) translate(${geom.padLeft},0) scale(${state.zoom},1) translate(${-geom.padLeft},0)`,
+    );
+    stageLabelEls.forEach((el) => {
+      const km = parseFloat(el.dataset.stageKm);
+      const x = xView(km);
+      el.setAttribute("x", x.toFixed(2));
+      const visible = x >= geom.padLeft - 4 && x <= geom.padLeft + geom.innerW + 4;
+      el.style.display = visible ? "" : "none";
+    });
+    if (resetBtn) resetBtn.hidden = state.zoom <= 1.001;
+    if (!cursor.hasAttribute("data-km")) return;
+    const km = parseFloat(cursor.dataset.km);
+    const m = parseFloat(cursor.dataset.m);
+    positionCursor(km, m);
+  }
+
+  function positionCursor(km, m) {
+    const cx = xView(km);
+    const cy = geom.yScale(m);
+    cursorLine.setAttribute("x1", cx);
+    cursorLine.setAttribute("x2", cx);
+    cursorDot.setAttribute("cx", cx);
+    cursorDot.setAttribute("cy", cy);
+    cursor.dataset.km = km;
+    cursor.dataset.m = m;
+  }
+
+  function eventToKm(event) {
+    const rect = svg.getBoundingClientRect();
+    const xv = ((event.clientX - rect.left) / rect.width) * geom.viewWidth;
+    const ratio = clamp((xv - geom.padLeft) / geom.innerW, 0, 1);
+    return state.panKm + ratio * viewKmRange();
+  }
+
+  function nearestDensePoint(km) {
+    let nearest = dense[0];
+    let bestDist = Math.abs(dense[0].km - km);
+    for (const p of dense) {
+      const d = Math.abs(p.km - km);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = p;
+      }
+    }
+    return nearest;
+  }
+
+  function showTooltipAt(event) {
+    const km = eventToKm(event);
+    const point = nearestDensePoint(km);
+    cursor.style.display = "";
+    positionCursor(point.km, point.m);
+    tooltip.hidden = false;
+    tipKm.textContent = `${point.km.toFixed(0)} km`;
+    tipM.textContent = `${Math.round(point.m)} m`;
+    tipPlace.textContent = point.label ? point.label.label : "";
+
+    const tipWidth = tooltip.offsetWidth || 120;
+    const rect = svg.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const cxClient = rect.left + (xView(point.km) / geom.viewWidth) * rect.width;
+    let left = cxClient - containerRect.left - tipWidth / 2;
+    left = Math.max(6, Math.min(containerRect.width - tipWidth - 6, left));
+    tooltip.style.left = `${left}px`;
+  }
+
+  function hideTooltip() {
+    cursor.style.display = "none";
+    cursor.removeAttribute("data-km");
+    cursor.removeAttribute("data-m");
+    tooltip.hidden = true;
+  }
+
+  function startPinch() {
+    const [a, b] = [...pointers.values()];
+    const midClient = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    const rect = svg.getBoundingClientRect();
+    const xv = ((midClient.x - rect.left) / rect.width) * geom.viewWidth;
+    const ratio = clamp((xv - geom.padLeft) / geom.innerW, 0, 1);
+    const anchorKm = state.panKm + ratio * viewKmRange();
+    pinch = {
+      initialDist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+      initialZoom: state.zoom,
+      anchorKm,
+      anchorRatio: ratio,
+      anchorMidX: midClient.x,
+      anchorPanKm: state.panKm,
+    };
+    hideTooltip();
+  }
+
+  function updatePinch() {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+    state.zoom = clamp(pinch.initialZoom * (dist / pinch.initialDist), state.minZoom, state.maxZoom);
+    const rect = svg.getBoundingClientRect();
+    const midClientX = (a.clientX + b.clientX) / 2;
+    const xv = ((midClientX - rect.left) / rect.width) * geom.viewWidth;
+    const ratio = clamp((xv - geom.padLeft) / geom.innerW, 0, 1);
+    state.panKm = pinch.anchorKm - ratio * viewKmRange();
+    applyZoom();
+  }
+
+  svg.addEventListener("pointerdown", (event) => {
+    svg.setPointerCapture(event.pointerId);
+    pointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+    if (pointers.size === 2) {
+      startPinch();
+    } else if (pointers.size === 1) {
+      showTooltipAt(event);
+    }
+    event.preventDefault();
+  });
+
+  svg.addEventListener("pointermove", (event) => {
+    const stored = pointers.get(event.pointerId);
+    if (stored) {
+      stored.clientX = event.clientX;
+      stored.clientY = event.clientY;
+    }
+    if (pointers.size === 2 && pinch) {
+      updatePinch();
+    } else if (pointers.size === 1 && stored) {
+      showTooltipAt(event);
+    } else if (event.pointerType === "mouse" && pointers.size === 0) {
+      showTooltipAt(event);
+    }
+  });
+
+  function endPointer(event) {
+    pointers.delete(event.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 0) {
+      // keep tooltip after touch release for a bit, hide on next interaction or leave
+    }
+  }
+
+  svg.addEventListener("pointerup", endPointer);
+  svg.addEventListener("pointercancel", endPointer);
+  svg.addEventListener("pointerleave", (event) => {
+    if (event.pointerType === "mouse" && pointers.size === 0) hideTooltip();
+  });
+
+  svg.addEventListener(
+    "wheel",
+    (event) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const xv = ((event.clientX - rect.left) / rect.width) * geom.viewWidth;
+      const ratio = clamp((xv - geom.padLeft) / geom.innerW, 0, 1);
+      const anchorKm = state.panKm + ratio * viewKmRange();
+      const factor = Math.exp(-event.deltaY * 0.0015);
+      state.zoom = clamp(state.zoom * factor, state.minZoom, state.maxZoom);
+      state.panKm = anchorKm - ratio * viewKmRange();
+      applyZoom();
+    },
+    { passive: false },
+  );
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      state.zoom = 1;
+      state.panKm = 0;
+      hideTooltip();
+      applyZoom();
+    });
+  }
+
+  applyZoom();
 }
 
 function renderElevationBars() {
